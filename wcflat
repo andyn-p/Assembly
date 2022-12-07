@@ -18,25 +18,25 @@ int main(void) {
     loop1:
         iChar = getchar();
         if (iChar == -1) goto endloop1;
-                lCharCount++;
-                if (!isspace(iChar)) goto endif1;
-                    if (!iInWord) goto endif2;
+            lCharCount++;
+            if (!isspace(iChar)) goto else1;
+                if (!iInWord) goto endif1;
                     lWordCount++;
                     iInWord = FALSE;
-                endif1:
-                if(iInWord) goto endif2;
+                    goto endif1;
+                    
+            else1:
+            if(iInWord) goto endif1;
                 iInWord = TRUE;
-                endif2:
-
-            if (iChar != '\n') goto endif3;
-            lLineCount++;
-            endif3:
-
-        goto loop1;
+            endif1:
+            if (iChar != '\n') goto endif2;
+                lLineCount++;
+            endif2:
+            goto loop1;
     endloop1:
-    if (!iInWord) goto endif4;
+    if (!iInWord) goto endif3;
     lWordCount++;
-    endif4:
+    endif3:
 
    printf("%7ld %7ld %7ld\n", lLineCount, lWordCount, lCharCount);
    return 0;

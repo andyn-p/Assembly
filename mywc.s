@@ -40,27 +40,30 @@ loop1:
     bl      getchar             // execute getchar, places val in x0
     adr     x1, iChar           // puts iChar addr in x1
     str     w0, [x1]            // store x0 into iChar
-    cmp     x1, EOF             // compares iChar to EOF, cmp val in x0
+    adr     x0, iChar           // regrab iChar addr
+    ldr     w0, [x0]            // place iChar val in w0
+    cmp     w0, EOF             // compares iChar to EOF, cmp val in x0
     beq     loop1End            // exits loop
 
     // lCharCount++;
-    adr     x0,lCharCount       // place lCharCount addr in x0
+    adr     x0, lCharCount      // place lCharCount addr in x0
     ldr     x1, [x0]            // load lCharCount val in x1
     add     x1, x1, 1           // add 1
     str     x1, [x0]            // store val in x1 into addr in x0
 
 
-    // if (!isspace(iChar)) goto endif1;
-    ldr     w0, [x1]            // place iChar val into x0
+    // if (!isspace(iChar)) goto else1;
+    adr     x0, iChar
+    ldr     w0, [x0]            // place iChar val into x0
     bl      isspace             // calls isspace with param in x0
     cmp     w0, FALSE           // checks if isspace returned FALSE
-    beq     endif1
+    beq     else1
 
-    // if (!iInWord) goto endif2;
+    // if (!iInWord) goto endif1;
     adr     x0, iInWord         // place iInWord addr in x0
-    ldr     x0, [x0]            // load inWord val into x0
-    cmp     x0, FALSE           // compare x0 to FALSE
-    beq     endif2
+    ldr     w0, [x0]            // load iInWord val into x0
+    cmp     w0, FALSE           // compare x0 to FALSE
+    beq     endif1
 
     // lWordCount++;
     adr     x0, lWordCount      // place lWordCount addr in x0
@@ -72,25 +75,27 @@ loop1:
     adr     x0, iInWord         // place iInWord addr in x0
     mov     w1, FALSE           // place FALSE val in x1
     str     w1, [x0]            // place FALSE val in iInWord
+    
+    b       endif1              // skip the else clause
 
-endif1:
-    // if(iInWord) goto endif2;
+else1:
+    // if(iInWord) goto endif1;
     adr     x0, iInWord         // place iInWord addr in x0
-    ldr     x0, [x0]            // load iInWord val
-    cmp     x0, TRUE            // compares to TRUE
-    beq     endif2              // if equal go to endif2
+    ldr     w0, [x0]            // load iInWord val
+    cmp     w0, TRUE            // compares to TRUE
+    beq     endif1              // if equal go to endif1
 
     // iInWord = TRUE;
     adr     x0, iInWord         // place iInWord addr in x0
     mov     w1, TRUE            // place constant TRUE in w1
     str     w1, [x0]            // store w1 (TRUE) into the addr stored in x0(iInWord
 
-endif2:
-    // if (iChar != '\n') goto endif3;
+endif1:
+    // if (iChar != '\n') goto endif2;
     adr     x0, iChar           // place iChar addr in x0
     ldr     w0, [x0]            // place value of iChar in x0
     cmp     w0, '\n'            // compare w0 with'\n'
-    bne     endif3              // if not equal go to endif
+    bne     endif2              // if not equal go to endif
 
     // lLineCount++
     adr     x0, lLineCount      // place lLineCount addr in x0
@@ -98,24 +103,24 @@ endif2:
     add     x1, x1, 1           // add 1
     str     x1, [x0]            // store val in x1 into addr in x0
 
-endif3:
+endif2:
     // goto loop1
     b       loop1
 
 loop1End:
-    // if (!iInWord) goto endif4;
+    // if (!iInWord) goto endif3;
     adr     x0, iInWord         // place iInWord addr in x0
-    ldr     x0, [x0]            // load iInWord value into x0
-    cmp     x0, FALSE           // compare with FALSE
-    beq     endif4              // if equal to FALSE go to endif4
+    ldr     w0, [x0]            // load iInWord value into x0
+    cmp     w0, FALSE           // compare with FALSE
+    beq     endif3              // if equal to FALSE go to endif3
 
     // lWordCount++
     adr     x0, lWordCount      // place lWordCount addr in x0
     ldr     x1, [x0]            // place lWord val in x1
     add     x1, x1, 1           // add 1
-    str     x1, [x0]              // store val in x1 into addr in x0
+    str     x1, [x0]            // store val in x1 into addr in x0
 
-endif4:
+endif3:
 
     // load all params
     adr     x0, printfFormatString  // load format string into x0

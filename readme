@@ -3,12 +3,12 @@ Assignment 5 readme File
 ------------------------------------------------------------------------
 Student 1: What is your name?
 
-
+Andy Nguyen
 
 ------------------------------------------------------------------------
 Student 2: What is your name?
 
-
+Icey Ai
 
 ------------------------------------------------------------------------
 Student 1: What authorized sources of information did you use to
@@ -78,6 +78,28 @@ particular, what bugs are in your submission?
 ------------------------------------------------------------------------
 What is your mywc program test plan?
 
+Boundary Tests:
+
+    mywcB1.txt: tests a completely empty file
+    mywcB2.txt: tests a file with only nonspace and nonendline characters
+    mywcB3.txt: tests a file with a bunch of just new lines
+    mywcB4.txt: tests a file with a bunch of new lines and spaces
+
+Statements Tests:
+
+    mywcA1.txt: 
+                By default, line 30, 52, 55, 56 in main is already executed.
+                This file
+                    - is nonempty, causes the computer to execute line 32, 34, 48 of the given mywc.c 
+                    - contains space, and causes execution of line 36
+                    - contains space right after a word, line 38, 39
+                    - contains nonspace characters, line 42, 44
+                    - contains a newline char following a space char, line 45, 49
+                    - ends with a word, line 53
+
+Stress Tests:
+    
+    mywcC1.txt: tests a text file with 50000 randomly generated characters, with newlines and spaces
 
 
 ------------------------------------------------------------------------
