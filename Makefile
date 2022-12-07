@@ -1,10 +1,13 @@
 GCC 	= gcc217
-TARGETS = mywcc mywcs
+TARGETS = mywcc mywcs fib
+
+# FLAGS   = -D NDEBUG -O 
+FLAGS   = -pg
 
 all: $(TARGETS)
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGETS)
 
 mywcc: mywc.c
 	$(GCC) $^ -o $@
@@ -12,3 +15,5 @@ mywcc: mywc.c
 mywcs: mywc.s
 	$(GCC) $^ -o $@
 
+fib: fib.c bigint.c bigintadd.c
+	$(GCC) $(FLAGS) $^ -o $@

@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "wcflat": "c"
+        "wcflat": "c",
+        "bigintaddflat": "c"
     }
 }
