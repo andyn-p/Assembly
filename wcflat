@@ -1,0 +1,43 @@
+#include <stdio.h>
+#include <ctype.h>
+
+enum {FALSE, TRUE};
+
+//Data
+static long lLineCount = 0;
+static long lWordCount = 0;
+static long lCharCount = 0;
+static int iInWord = FALSE;
+
+//BSS
+static int iChar;
+
+int main(void) {
+
+
+    loop1:
+        iChar = getchar();
+        if (iChar == -1) goto endloop1;
+                lCharCount++;
+                if (!isspace(iChar)) goto endif1;
+                    if (!iInWord) goto endif2;
+                    lWordCount++;
+                    iInWord = FALSE;
+                endif1:
+                if(iInWord) goto endif2;
+                iInWord = TRUE;
+                endif2:
+
+            if (iChar != '\n') goto endif3;
+            lLineCount++;
+            endif3:
+
+        goto loop1;
+    endloop1:
+    if (!iInWord) goto endif4;
+    lWordCount++;
+    endif4:
+
+   printf("%7ld %7ld %7ld\n", lLineCount, lWordCount, lCharCount);
+   return 0;
+}
