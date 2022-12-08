@@ -30,7 +30,7 @@ BigInt_larger:
     
     // if (lLength1 <= lLength2) goto else1;
     cmp     x0, x1              // compare lLength1 and lLength2
-    bls     else1               // goto else1 if lLength1 <= lLength2
+    ble     else1               // goto else1 if lLength1 <= lLength2
     
     // lLarger = lLength1;
     ldr     x0, [sp, lLength1]  // place lLength1 val in x0

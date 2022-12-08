@@ -14,9 +14,11 @@
     .equ BI_LARGER_STACK_SIZE, 32
     
     // params and local vars
-    .equ lLength1, 8
-    .equ lLength2, 16
-    .equ lLarger, 24
+    .equ oldx19, 8
+    .equ oldx20, 16
+    
+    lLength1 .req x19
+    lLength2 .req x20
     
 BigInt_larger:
 
@@ -24,30 +26,32 @@ BigInt_larger:
     sub     sp, sp, BI_LARGER_STACK_SIZE      
     str     x30, [sp]
 
-    // store params
-    str     x0, [sp, lLength1]
-    str     x1, [sp, lLength2]
+    // store to stack and load params
+    str     x19, [sp, oldx19]
+    str     x20, [sp, oldx20]
+
+    mov     lLength1, x0
+    mov     lLength2, x1
     
     // if (lLength1 <= lLength2) goto else1;
-    cmp     x0, x1              // compare lLength1 and lLength2
-    bls     else1               // goto else1 if lLength1 <= lLength2
+    cmp     lLength1, lLength2  // compare lLength1 and lLength2
+    ble     else1               // goto else1 if lLength1 <= lLength2
     
     // lLarger = lLength1;
-    ldr     x0, [sp, lLength1]  // place lLength1 val in x0
-    str     x0, [sp, lLarger]   // store val in x0 in lLarger
+    mov     x0, lLength1        // place lLength1 val in x0
+
     b       return1
     
 else1:
     
     // lLarger = lLength2;
-    ldr     x0, [sp, lLength2]  // place lLength2 val in x0
-    str     x0, [sp, lLarger]   // store val in x0 in lLarger
+    mov     x0, lLength2        // place lLength2 val in x0
     
 return1:
-    
-    // return lLarger;
+    // load back old values and return
+    ldr     x19, [sp, oldx19]
+    ldr     x20, [sp, oldx20]
     ldr     x30, [sp]           // load sp to x30
-    ldr     x0, [sp, lLarger]   // place lLarger in x0 (return reg)
     add     sp, sp, BI_LARGER_STACK_SIZE // move sp back
     ret
 
@@ -62,14 +66,24 @@ return1:
     .equ MAX_DIGITS, 32768
     .equ SIZE_OF_UL, 8
     
-    // params offsets and local vars
-    .equ lSumLength, 8
-    .equ lIndex, 16
-    .equ ulSum, 24
-    .equ ulCarry, 32
-    .equ oSum, 40
-    .equ oAddend2, 48
-    .equ oAddend1, 56
+    // callee stuff
+    .equ oldx19, 8
+    .equ oldx20, 16
+    .equ oldx21, 24
+    .equ oldx22, 32
+    .equ oldx23, 40
+    .equ oldx24, 48
+    .equ oldx25, 56
+    
+    // regs for local vars
+    lSumLength  .req x19
+    lIndex      .req x20
+    ulSum       .req x21
+    ulCarry     .req x22
+    oSum        .req x23
+    oAddend1    .req x24
+    oAddend2    .req x25
+    
     
     .global BigInt_add
     
@@ -79,30 +93,34 @@ BigInt_add:
     sub     sp, sp, BI_ADD_STACK_SIZE
     str     x30, [sp]
     
+    // store old reg vals
+    str     x19, [sp, oldx19]
+    str     x20, [sp, oldx20]
+    str     x21, [sp, oldx21]
+    str     x22, [sp, oldx22]
+    str     x23, [sp, oldx23]
+    str     x24, [sp, oldx24]
+    str     x25, [sp, oldx25]
+
     // store params 
-    str     x0, [sp, oAddend1]
-    str     x1, [sp, oAddend2]
-    str     x2, [sp, oSum]
-
+    mov     oAddend1, x0
+    mov     oAddend2, x1
+    mov     oSum, x2
+    
     // lSumLength = BigInt_larger(oAddend1->lLength, oAddend2->lLength);
-    ldr     x0, [sp, oAddend1]      // load the addr of oAddend1->lLength (same as oAddend1) to x0
-    ldr     x0, [x0]                // dereference x0 into x0
-
-    ldr     x1, [sp, oAddend2]
-    ldr     x1, [x1]                // do the same with oAddend2->lLength
+    ldr     x0, [oAddend1]          // load the addr of oAddend1->lLength (same as oAddend1) to x0
+    ldr     x1, [oAddend2]          // do the same with oAddend2->lLength
     
     bl      BigInt_larger
-    str     x0, [sp, lSumLength]
+    mov     lSumLength, x0
     
     // if (oSum->lLength <= lSumLength) goto skipif1;
-    ldr     x0, [sp, oSum]          // load addr of oSum->length
-    ldr     x0, [x0]                // dereference x0 into x0
-    ldr     x1, [sp, lSumLength]    // load lSumLength into x1
-    cmp     x0, x1                  // compare oSum's length and lSumLength
+    ldr     x0, [oSum]              // load val at addr of oSum->length to x0
+    cmp     x0, lSumLength          // compare oSum's length and lSumLength
     ble     skipif1
     
     // memset(oSum->aulDigits, 0, MAX_DIGITS * sizeof(unsigned long));
-    ldr     x0, [sp, oSum]          // load addr of oSum->length
+    mov     x0, oSum                // load addr of oSum->length to x0
     add     x0, x0, 8               // move past to aulDigits[0]
     mov     x1, MAX_DIGITS          // load MAX_DIGITS
     mov     x2, SIZE_OF_UL          // load SIZE_OF_UL
@@ -112,75 +130,60 @@ BigInt_add:
     
 skipif1:
     // ulCarry = 0; lIndex = 0;
-    mov     x0, 0                   // store 0 in x0
-    str     x0, [sp, ulCarry]       // store val of x0 to ulCarry
-    str     x0, [sp, lIndex]        // store val of x0 to lIndex
+    mov     ulCarry, 0              // store 0 in ulCarry
+    mov     lIndex, 0               // store 0 in lIndex
 
 loop1: 
     // if (lIndex >= lSumLength) goto endloop1
-    ldr     x0, [sp, lIndex]        // load value of lIndex to x0
-    ldr     x1, [sp, lSumLength]    // load value of lSumLength to x1
-    cmp     x0, x1                  // compare x0 and x1
-    bge     endloop1                // if x0 greater or equal to x1, go to endloop1
+    cmp     lIndex, lSumLength      // compare lIndex and lSumLength
+    bge     endloop1                // if lIndex ge lSumLength, go to endloop1
     
     // ulSum = ulCarry; 
-    ldr     x0, [sp, ulCarry]       // load the val of ulCarry to x0
-    str     x0, [sp, ulSum]         // store the val of x0 to ulSum
+    mov     ulSum, ulCarry;         
     
     // ulCarry = 0;
-    mov     x0, 0                   // store 0 in x0
-    str     x0, [sp, ulCarry]       // store the val of x0 to ulCarry
-    
+    mov     ulCarry, 0              
     
     // ulSum += oAddend1->aulDigits[lIndex];
-    ldr     x0, [sp, ulSum]         // load ulSum into x0
-    ldr     x1, [sp, oAddend1]      // load addr of oAddend1->length
-    add     x1, x1, 8               // move past to aulDigits[0]
-    ldr     x2, [sp, lIndex]        // load lIndex addr into x2
-    ldr     x1, [x1, x2, lsl 3]     // load aulDigits[lIndex] into x1
-    add     x0, x0, x1              // add to ulSum
-    str     x0, [sp, ulSum]         // store value back in ulSum
+    add     x0, oAddend1, 8         // move x0 into oAddend1->aulDigits[0]
+    lsl     x1, lIndex, 3           // lsl lIndex
+    add     x0, x0, x1              // move x0 into oAddend1->aulDigits[lIndex]
+    ldr     x0, [x0]                // deref
+    add     ulSum, ulSum, x0        // add to ulSum
 
     // if (ulSum >= oAddend1->aulDigits[lIndex]) goto overflow1;
-    cmp     x0, x1                  // compare x0 and x1
+    cmp     ulSum, x0               // compare ulSum and x0
     bhs     overflow1               // if x0 bigger or equal to x1, go to overflow1
     
     // ulCarry = 1;
-    mov     x0, 1                   // place 1 into x0
-    str     x0, [sp, ulCarry]       // store x0 into ulCarry
+    mov     ulCarry, 1              
     
 overflow1:
 
     // ulSum += oAddend2->aulDigits[lIndex];
-    ldr     x0, [sp, ulSum]         // load ulSum into x0
-    ldr     x1, [sp, oAddend2]      // load oAddend1->length addr
-    add     x1, x1, 8               // move into oAddend1->aulDigits
-    ldr     x2, [sp, lIndex]        // load lIndex into x2
-    ldr     x1, [x1, x2, lsl 3]     // load aulDigits[lIndex] into x1
-    add     x0, x0, x1              // add to ulSum
-    str     x0, [sp, ulSum]         // store value back in ulSum
+    add     x0, oAddend2, 8         // move x0 into oAddend2->aulDigits[0]
+    lsl     x1, lIndex, 3           // lsl lIndex
+    add     x0, x0, x1              // move x0 into oAddend2->aulDigits[lIndex]
+    ldr     x0, [x0]                // deref
+    add     ulSum, ulSum, x0        // add to ulSum
     
     // if (ulSum >= oAddend2->aulDigits[lIndex]) goto overflow2;
-    cmp     x0, x1                  // compare x0 and x1
+    cmp     ulSum, x0               // compare ulSum and x0
     bhs     overflow2               // goto overflow2 if x0 >= x1
     
     // ulCarry = 1;
-    mov     x0, 1                   // place 1 into x0
-    str     x0, [sp, ulCarry]       // store x0 into ulCarry
+    mov     ulCarry, 1
     
 overflow2:
 
     // oSum->aulDigits[lIndex] = ulSum;
-    ldr     x0, [sp, oSum]          // load oSum->length addr
-    add     x0, x0, 8               // move past to aulDigits
-    ldr     x1, [sp, lIndex]        // load lIndex into x1
-    ldr     x2, [sp, ulSum]         // load ulSum into x2
-    str     x2, [x0, x1, lsl 3]     // store ulSum into oSum->aulDigits[lIndex]
+    add     x0, oSum, 8             // put addr of oSum->aulDigits[0] to x0
+    lsl     x1, lIndex, 3           // leftshift lIndex
+    add     x0, x0, x1              // x0 is now at oSum->aulDigits[lIndex]
+    str     ulSum, [x0]             // store ulSum to x0
 
     // lIndex++;
-    ldr     x0, [sp, lIndex]        // load val of lIndex into x0
-    add     x0, x0, 1               // increment x0 by 1
-    str     x0, [sp, lIndex]        // store val of x0 back to lIndex
+    add     lIndex, lIndex, 1       // increment lIndex
     
     //goto loop1
     b       loop1                   // go to loop1       
@@ -188,45 +191,52 @@ overflow2:
 endloop1:
 
     // if (ulCarry != 1) goto endif1;
-    ldr     x0, [sp, ulCarry]       // load val of ulCarry to x0
-    mov     x1, 1                   // set x1 = 1
-    cmp     x0, x1                  // compare x0 and x1
-    bne     endif1                  // if not equal go to endif1
-    
+    cmp     ulCarry, 1              // compare ulCarry to 1
+    bne     endif1
     
     // if (lSumLength != MAX_DIGITS) goto skipif2;
-    ldr     x0, [sp, lSumLength]    // load val of lSumLength to x0
-    mov     x1, MAX_DIGITS          // set x1 to be MAX_DIGITS
-    cmp     x0, x1                  // compare x0 and x1
+    cmp     lSumLength, MAX_DIGITS  // compare lSumLength and MAX_DIGITS
     bne     skipif2                 // if not equal go to skipif2
     
-    // return FALSE;
-    mov     x0, FALSE               // load FALSe into x0    
+    // restore the values and return FALSE;
+    ldr     x19, [sp, oldx19]
+    ldr     x20, [sp, oldx20]
+    ldr     x21, [sp, oldx21]
+    ldr     x22, [sp, oldx22]
+    ldr     x23, [sp, oldx23]
+    ldr     x24, [sp, oldx24]
+    ldr     x25, [sp, oldx25]
     ldr     x30, [sp]               // enter addr
+
+    mov     x0, FALSE               // load FALSe into x0    
     add     sp, sp, BI_ADD_STACK_SIZE   // move sp back
     ret
     
 skipif2:
     // oSum->aulDigits[lSumLength] = 1;
-    ldr     x0, [sp, lSumLength]    // load val of lSumLength to x0
-    ldr     x1, [sp, oSum]          // load addr of oSum->lLength to x1
-    add     x1, x1, 8               // now x1 is the addr of oSum->aulDigits[0]
-    mov     x2, 1                   // let x2 = 1
-    str     x2, [x1, x0, lsl 3]     // store x2 to oSum->aulDigits[lSumLength]
+    add     x0, oSum, 8             // put addr of oSum->aulDigits[0] to x0
+    lsl     x1, lIndex, 3           // leftshift lIndex
+    add     x0, x0, x1              // x0 is now at oSum->aulDigits[lIndex]
+    mov     x1, 1                   // move 1 into x1
+    str     x1, [x0]                // store 1 into memory addr in x0
 
     // lSumLength++;
-    ldr     x0, [sp, lSumLength]    // load lSumLength into x0
-    add     x0, x0, 1               // add 1
-    str     x0, [sp, lSumLength]    // store lSumLength
+    add     lSumLength, lSumLength, 1   // increment lSumLength
     
 endif1:
 
     // oSum->lLength = lSumLength;
-    ldr     x0, [sp, oSum]          // load oSum->length into x0
-    ldr     x1, [sp, lSumLength]    // load lSumLength into x0
-    str     x1, [x0]                  // store lSumLength in oSum->length
+    str     lSumLength, [oSum]      // store lSumLength at oSum addr
     
     // return TRUE;
+    ldr     x19, [sp, oldx19]
+    ldr     x20, [sp, oldx20]
+    ldr     x21, [sp, oldx21]
+    ldr     x22, [sp, oldx22]
+    ldr     x23, [sp, oldx23]
+    ldr     x24, [sp, oldx24]
+    ldr     x25, [sp, oldx25]
+    
     mov     x0, TRUE                // load TRUE into x0
     ldr     x30, [sp]               // enter addr
     add     sp, sp, BI_ADD_STACK_SIZE   // move sp back
