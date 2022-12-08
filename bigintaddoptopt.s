@@ -14,7 +14,7 @@
     .equ FALSE, 0
     
     // stack size
-    .equ BI_ADD_STACK_SIZE, 64
+    .equ BI_ADD_STACK_SIZE, 80
     
     // magic numbers
     .equ MAX_DIGITS, 32768
@@ -27,6 +27,9 @@
     .equ oldx22, 32
     .equ oldx23, 40
     .equ oldx24, 48
+    .equ oldx25, 56
+    .equ oldx26, 64
+    .equ oldx27, 72
     
     // regs for local vars
     lSumLength  .req x19
@@ -35,6 +38,9 @@
     oSum        .req x22
     oAddend1    .req x23
     oAddend2    .req x24
+    oSumD       .req x25
+    oAddend1D   .req x26
+    oAddend2D   .req x27
     
     .global BigInt_add
     
@@ -51,11 +57,18 @@ BigInt_add:
     str     x22, [sp, oldx22]
     str     x23, [sp, oldx23]
     str     x24, [sp, oldx24]
+    str     x25, [sp, oldx25]
+    str     x26, [sp, oldx26]
+    str     x27, [sp, oldx27]
 
     // store params 
     mov     oAddend1, x0
     mov     oAddend2, x1
     mov     oSum, x2
+    
+    add     oAddend1D, oAddend1, 8
+    add     oAddend2D, oAddend2, 8
+    add     oSumD, oSum, 8
     
     // lSumLength = BigInt_larger(oAddend1->lLength, oAddend2->lLength);
     ldr     x0, [oAddend1]          // deref
@@ -73,74 +86,65 @@ lelse1:
 finish1:
     
     // if (oSum->lLength <= lSumLength) goto skipif1;
-    ldr     x0, [oSum]              // load val at addr of oSum->length to x0
-    cmp     x0, lSumLength          // compare oSum's length and lSumLength
-    ble     skipif1
+    ldr     x0, [oSum]                      // deref oSum to get length
+    cmp     x0, lSumLength                  // compare lengths
+    ble     skipif1                         // decide if should memset
     
     // memset(oSum->aulDigits, 0, MAX_DIGITS * sizeof(unsigned long));
-    mov     x0, oSum                // load addr of oSum->length to x0
-    add     x0, x0, 8               // move past to aulDigits[0]
-    mov     x1, MAX_DIGITS          // load MAX_DIGITS
-    mov     x2, SIZE_OF_UL          // load SIZE_OF_UL
-    mul     x2, x1, x2              // set 3rd param
-    mov     x1, 0                   // set 2nd param
+    mov     x0, oSumD                       
+    mov     x1, 0
+    mov     x2, MAX_DIGITS * SIZE_OF_UL
     bl      memset
     
 skipif1:
-    // lIndex = 0;
-    mov     lIndex, 0               // store 0 in lIndex
+    // lIndex = 0; ulSum = 0 <= initially
+    mov     lIndex, 0                       
     mov     ulSum, 0
 
     // if (lIndex >= lSumLength) goto endloop1
-    cmp     lIndex, lSumLength      // compare lIndex and lSumLength
-    bge     endloop1                  // if lIndex ge lSumLength, go to endif1
+    cmp     lIndex, lSumLength              // check lIndex < lSumLength
+    bge     endif1                          // goto endif1
 
 
 loop1:      
     // ulSum += oAddend1->aulDigits[lIndex];
-    add     x0, oAddend1, 8                         // move x0 into oAddend1->aulDigits[0]
-    ldr     x0, [x0, lIndex, lsl 3]                 // has oAddend1->aulDigits[lIndex]
+    ldr     x0, [oAddend1D, lIndex, lsl 3]  // grab a1 val
     
-    adcs    ulSum, ulSum, x0                        // adds oAddend1 to sum and adds and sets carry
+    adcs    ulSum, ulSum, x0                // adds a1 and sets carry
     
     // ulSum += oAddend2->aulDigits[lIndex];
-    add     x1, oAddend2, 8                         // move x0 into oAddend2->aulDigits[0]
-    ldr     x1, [x1, lIndex, lsl 3]                 // deref
+    ldr     x1, [oAddend2D, lIndex, lsl 3]  // grab a2 val
     
-    bhs     add2                                    // goto add2 if carry = 1
-
-    adcs    ulSum, ulSum, x1                        // sets carry, chance for carry to go high here
+    bhs     add2                            // goto add2 if carry = 1
+    adcs    ulSum, ulSum, x1                // add and set carry
     b       setsum    
 
 // come here if oAddend1 doesnt produce carry
 add2:
-    
-    add     ulSum, ulSum, x1                        // add, but do NOT want to reset carry
+    add     ulSum, ulSum, x1                // add, do not set carry
     
 setsum:
-    
     // oSum->aulDigits[lIndex] = ulSum;
-    add     x0, oSum, 8                             // put addr of oSum->aulDigits[0] to x0
-    str     ulSum, [x0, lIndex, lsl 3]              // store ulSum to x0
+    str     ulSum, [oSumD, lIndex, lsl 3]   // store ulSum to x0
 
     // lIndex++;
-    add     lIndex, lIndex, 1       // increment lIndex
+    add     lIndex, lIndex, 1               // increment lIndex
     
-    adcs    ulSum, xzr, xzr
+    adcs    ulSum, xzr, xzr                 // ulSum = carry
     
     // if (lIndex < lSumLength) goto loop1
-    cmp     lIndex, lSumLength      // compare lIndex and lSumLength
-    blt     loop1                 // if lIndex less than lSumLength, go to loop1   
+    cmp     lIndex, lSumLength              // check lIndex < lSumLength
+    blt     loop1                           // goto loop1 if < 
     
 endloop1:
     
-    // if flag is not 1 goto endif1
+    // if ulSum is not 1, meaning carry isnt 1, goto endif1
     cmp     ulSum, 1
     bne     endif1
     
     // if (lSumLength != MAX_DIGITS) goto skipif2;
-    cmp     lSumLength, MAX_DIGITS  // compare lSumLength and MAX_DIGITS
-    bne     skipif2                 // if not equal go to skipif2
+    cmp     lSumLength, MAX_DIGITS          // check add didnt pass max
+    bne     skipif2                         
     
     // restore the values and return FALSE;
     ldr     x19, [sp, oldx19]
@@ -149,25 +153,28 @@ endloop1:
     ldr     x22, [sp, oldx22]
     ldr     x23, [sp, oldx23]
     ldr     x24, [sp, oldx24]
-    ldr     x30, [sp]               // enter addr
+    ldr     x25, [sp, oldx25]
+    ldr     x26, [sp, oldx26]
+    ldr     x27, [sp, oldx27]
+    ldr     x30, [sp]                       // enter addr
 
-    mov     x0, FALSE               // load FALSe into x0    
-    add     sp, sp, BI_ADD_STACK_SIZE   // move sp back
+    mov     x0, FALSE                        
+    add     sp, sp, BI_ADD_STACK_SIZE       // move sp back
     ret
     
 skipif2:
     // oSum->aulDigits[lSumLength] = 1;
-    add     x0, oSum, 8             // put addr of oSum->aulDigits[0] to x0
-    mov     x1, 1                   // move 1 into x1
-    str     x1, [x0, lSumLength, lsl 3]                // store 1 into memory addr in x0
+    add     x0, oSum, 8             
+    mov     x1, 1                   
+    str     x1, [x0, lSumLength, lsl 3]
 
     // lSumLength++;
-    add     lSumLength, lSumLength, 1   // increment lSumLength
+    add     lSumLength, lSumLength, 1  
     
 endif1:
 
     // oSum->lLength = lSumLength;
-    str     lSumLength, [oSum]      // store lSumLength at oSum addr
+    str     lSumLength, [oSum]              
     
     // return TRUE;
     ldr     x19, [sp, oldx19]
@@ -176,6 +183,9 @@ endif1:
     ldr     x22, [sp, oldx22]
     ldr     x23, [sp, oldx23]
     ldr     x24, [sp, oldx24]
+    ldr     x25, [sp, oldx25]
+    ldr     x26, [sp, oldx26]
+    ldr     x27, [sp, oldx27]
     
     mov     x0, TRUE                // load TRUE into x0
     ldr     x30, [sp]               // enter addr
