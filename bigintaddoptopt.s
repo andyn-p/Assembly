@@ -27,17 +27,14 @@
     .equ oldx22, 32
     .equ oldx23, 40
     .equ oldx24, 48
-    .equ oldx25, 56
     
     // regs for local vars
     lSumLength  .req x19
     lIndex      .req x20
     ulSum       .req x21
-    ulCarry     .req x22
-    oSum        .req x23
-    oAddend1    .req x24
-    oAddend2    .req x25
-    
+    oSum        .req x22
+    oAddend1    .req x23
+    oAddend2    .req x24
     
     .global BigInt_add
     
@@ -54,7 +51,6 @@ BigInt_add:
     str     x22, [sp, oldx22]
     str     x23, [sp, oldx23]
     str     x24, [sp, oldx24]
-    str     x25, [sp, oldx25]
 
     // store params 
     mov     oAddend1, x0
@@ -62,13 +58,13 @@ BigInt_add:
     mov     oSum, x2
     
     // lSumLength = BigInt_larger(oAddend1->lLength, oAddend2->lLength);
-    ldr     x0, [oAddend1]                // deref
-    ldr     x1, [oAddend2]                // deref
+    ldr     x0, [oAddend1]          // deref
+    ldr     x1, [oAddend2]          // deref
     cmp     x0, x1                  // compare lengths
     ble     lelse1                  // if <=, then lLength2 is bigger
 
     mov     lSumLength, x0          // lLength2 is bigger
-    b       finish1                 // skip past 
+    b       finish1                 // skip else
     
 lelse1:
 
@@ -91,72 +87,55 @@ finish1:
     bl      memset
     
 skipif1:
-    // ulCarry = 0; lIndex = 0;
-    mov     ulCarry, 0              // store 0 in ulCarry
+    // lIndex = 0;
     mov     lIndex, 0               // store 0 in lIndex
-
+    mov     ulSum, 0
 
     // if (lIndex >= lSumLength) goto endloop1
     cmp     lIndex, lSumLength      // compare lIndex and lSumLength
-    bge     endloop1                // if lIndex ge lSumLength, go to endloop1
+    bge     endloop1                  // if lIndex ge lSumLength, go to endif1
 
-loop1: 
 
-    // ulSum = ulCarry; 
-    mov     ulSum, ulCarry;         
-    
-    // ulCarry = 0;
-    mov     ulCarry, 0              
-    
+loop1:      
     // ulSum += oAddend1->aulDigits[lIndex];
-    add     x0, oAddend1, 8         // move x0 into oAddend1->aulDigits[0]
-    lsl     x1, lIndex, 3           // lsl lIndex
-    add     x0, x0, x1              // move x0 into oAddend1->aulDigits[lIndex]
-    ldr     x0, [x0]                // deref
-    add     ulSum, ulSum, x0        // add to ulSum
-
-    // if (ulSum >= oAddend1->aulDigits[lIndex]) goto overflow1;
-    cmp     ulSum, x0               // compare ulSum and x0
-    bhs     overflow1               // if x0 bigger or equal to x1, go to overflow1
+    add     x0, oAddend1, 8                         // move x0 into oAddend1->aulDigits[0]
+    ldr     x0, [x0, lIndex, lsl 3]                 // has oAddend1->aulDigits[lIndex]
     
-    // ulCarry = 1;
-    mov     ulCarry, 1              
+    adcs    ulSum, ulSum, x0                        // adds oAddend1 to sum and adds and sets carry
     
-overflow1:
-
     // ulSum += oAddend2->aulDigits[lIndex];
-    add     x0, oAddend2, 8         // move x0 into oAddend2->aulDigits[0]
-    lsl     x1, lIndex, 3           // lsl lIndex
-    add     x0, x0, x1              // move x0 into oAddend2->aulDigits[lIndex]
-    ldr     x0, [x0]                // deref
-    add     ulSum, ulSum, x0        // add to ulSum
+    add     x1, oAddend2, 8                         // move x0 into oAddend2->aulDigits[0]
+    ldr     x1, [x1, lIndex, lsl 3]                 // deref
     
-    // if (ulSum >= oAddend2->aulDigits[lIndex]) goto overflow2;
-    cmp     ulSum, x0               // compare ulSum and x0
-    bhs     overflow2               // goto overflow2 if x0 >= x1
-    
-    // ulCarry = 1;
-    mov     ulCarry, 1
-    
-overflow2:
+    bhs     add2                                    // goto add2 if carry = 1
 
+    adcs    ulSum, ulSum, x1                        // sets carry, chance for carry to go high here
+    b       setsum    
+
+// come here if oAddend1 doesnt produce carry
+add2:
+    
+    add     ulSum, ulSum, x1                        // add, but do NOT want to reset carry
+    
+setsum:
+    
     // oSum->aulDigits[lIndex] = ulSum;
-    add     x0, oSum, 8             // put addr of oSum->aulDigits[0] to x0
-    lsl     x1, lIndex, 3           // leftshift lIndex
-    add     x0, x0, x1              // x0 is now at oSum->aulDigits[lIndex]
-    str     ulSum, [x0]             // store ulSum to x0
+    add     x0, oSum, 8                             // put addr of oSum->aulDigits[0] to x0
+    str     ulSum, [x0, lIndex, lsl 3]              // store ulSum to x0
 
     // lIndex++;
     add     lIndex, lIndex, 1       // increment lIndex
     
+    adcs    ulSum, xzr, xzr
+    
     // if (lIndex < lSumLength) goto loop1
     cmp     lIndex, lSumLength      // compare lIndex and lSumLength
-    blt     loop1                   // if lIndex less than lSumLength, go to loop1     
+    blt     loop1                 // if lIndex less than lSumLength, go to loop1   
     
 endloop1:
-
-    // if (ulCarry != 1) goto endif1;
-    cmp     ulCarry, 1              // compare ulCarry to 1
+    
+    // if flag is not 1 goto endif1
+    cmp     ulSum, 1
     bne     endif1
     
     // if (lSumLength != MAX_DIGITS) goto skipif2;
@@ -170,7 +149,6 @@ endloop1:
     ldr     x22, [sp, oldx22]
     ldr     x23, [sp, oldx23]
     ldr     x24, [sp, oldx24]
-    ldr     x25, [sp, oldx25]
     ldr     x30, [sp]               // enter addr
 
     mov     x0, FALSE               // load FALSe into x0    
@@ -180,10 +158,8 @@ endloop1:
 skipif2:
     // oSum->aulDigits[lSumLength] = 1;
     add     x0, oSum, 8             // put addr of oSum->aulDigits[0] to x0
-    lsl     x1, lIndex, 3           // leftshift lIndex
-    add     x0, x0, x1              // x0 is now at oSum->aulDigits[lIndex]
     mov     x1, 1                   // move 1 into x1
-    str     x1, [x0]                // store 1 into memory addr in x0
+    str     x1, [x0, lIndex, lsl 3]                // store 1 into memory addr in x0
 
     // lSumLength++;
     add     lSumLength, lSumLength, 1   // increment lSumLength
@@ -200,7 +176,6 @@ endif1:
     ldr     x22, [sp, oldx22]
     ldr     x23, [sp, oldx23]
     ldr     x24, [sp, oldx24]
-    ldr     x25, [sp, oldx25]
     
     mov     x0, TRUE                // load TRUE into x0
     ldr     x30, [sp]               // enter addr
