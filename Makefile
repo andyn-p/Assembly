@@ -1,13 +1,16 @@
 GCC 	= gcc217
-TARGETS = mywcc mywcs fib
+TARGETS = mywcc mywcs fibc fibs
 
+FLAGS   =
+# FLAGS 	= -g
 # FLAGS   = -D NDEBUG -O 
-FLAGS   = -pg
+# FLAGS   = -pg
 
 all: $(TARGETS)
 
 clean:
 	rm -f $(TARGETS)
+	rm -f file1 file2
 
 mywcc: mywc.c
 	$(GCC) $^ -o $@
@@ -15,5 +18,9 @@ mywcc: mywc.c
 mywcs: mywc.s
 	$(GCC) $^ -o $@
 
-fib: fib.c bigint.c bigintadd.c
+fibc: fib.c bigint.c bigintadd.c
 	$(GCC) $(FLAGS) $^ -o $@
+	
+fibs: fib.c bigint.c bigintadd.s 
+	$(GCC) $(FLAGS) $^ -o $@
+	
