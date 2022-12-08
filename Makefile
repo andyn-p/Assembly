@@ -2,8 +2,8 @@ GCC 	= gcc217
 TARGETS = mywcc mywcs fibc fibs fib
 
 FLAGS   =
-FLAGS 	= -g
-# FLAGS   = -D NDEBUG -O 
+# FLAGS 	= -g
+FLAGS   = -D NDEBUG -O 
 # FLAGS   = -pg
 
 all: $(TARGETS)
@@ -24,5 +24,6 @@ fibc: fib.c bigint.c bigintadd.c
 fibs: fib.c bigint.c bigintadd.s 
 	$(GCC) $(FLAGS) $^ -o $@
 	
-fib: fib.c bigint.c bigintaddopt.s
+fib: fib.c bigint.c bigintaddoptopt.s
 	$(GCC) $(FLAGS) $^ -o $@
+	
