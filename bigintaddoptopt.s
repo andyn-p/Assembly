@@ -159,7 +159,7 @@ skipif2:
     // oSum->aulDigits[lSumLength] = 1;
     add     x0, oSum, 8             // put addr of oSum->aulDigits[0] to x0
     mov     x1, 1                   // move 1 into x1
-    str     x1, [x0, lIndex, lsl 3]                // store 1 into memory addr in x0
+    str     x1, [x0, lSumLength, lsl 3]                // store 1 into memory addr in x0
 
     // lSumLength++;
     add     lSumLength, lSumLength, 1   // increment lSumLength
